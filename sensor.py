@@ -14,6 +14,7 @@ from .hoymiles.client import HoymilesModbusTCP
 #from .hoymiles.datatypes import MicroinverterType
 
 CONF_MONITORED_CONDITIONS_PV = "monitored_conditions_pv"
+CONF_MONITORED_CONDITIONS_MI = "monitored_conditions_mi"
 CONF_MICROINVERTERS = "microinverters"
 CONF_PANELS = "panels"
 CONF_DTU_TYPE = "dtu_type"
@@ -28,6 +29,12 @@ SENSOR_TYPES = {
     'today_production': ['Energia dzisiaj', UnitOfEnergy.KILO_WATT_HOUR, SensorDeviceClass.ENERGY, SensorStateClass.TOTAL_INCREASING, False, 1000, 2],
     'total_production': ['Energia od początku', UnitOfEnergy.KILO_WATT_HOUR, SensorDeviceClass.ENERGY, SensorStateClass.TOTAL, False, 1000, 1],
     'alarm_flag': ['Flaga alarmu', ' ', 'alarm_flag', None, False, 1, 0]
+}
+
+MI_TYPES = {
+    'ac_power': ['Moc AC', UnitOfPower.WATT, SensorDeviceClass.POWER, None, False, 1, 0],
+    'today_production': ['Energia dzisiaj', UnitOfEnergy.KILO_WATT_HOUR, SensorDeviceClass.ENERGY, SensorStateClass.TOTAL_INCREASING, False, 1000, 2],
+    'total_production': ['Energia od początku', UnitOfEnergy.KILO_WATT_HOUR, SensorDeviceClass.ENERGY, SensorStateClass.TOTAL, False, 1000, 1],
 }
 
 PV_TYPES = {
@@ -51,6 +58,8 @@ PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend({
         vol.All(cv.ensure_list, [vol.In(SENSOR_TYPES)]),
     vol.Optional(CONF_MONITORED_CONDITIONS_PV, default=[]):
         vol.All(cv.ensure_list, [vol.In(PV_TYPES)]),
+    vol.Optional(CONF_MONITORED_CONDITIONS_MI, default=[]):
+        vol.All(cv.ensure_list, [vol.In(MI_TYPES)]),
     vol.Optional(CONF_PANELS, default=0): cv.byte,
     vol.Optional(CONF_DTU_TYPE, default=0): cv.byte,    
     vol.Optional(CONF_NAME, default=DEFAULT_NAME): cv.string,
@@ -75,6 +84,9 @@ def setup_platform(hass, config, add_entities, discovery_info=None):
         while i<=panels:
           dev.append(HoymilesPVSensor(name, updater.data.inverters[i-1].serial_number, i, updater.data.inverters[i-1].port_number, variable, updater))
           i+=1
+    for variable in config[CONF_MONITORED_CONDITIONS_MI]:
+        for idx, mi in enumerate(updater.data.microinverters):
+            dev.append(HoymilesMISensor(name, mi.serial_number, idx, variable, updater))
     add_entities(dev, True)
 
 class HoymilesDTUSensor(SensorEntity):
@@ -203,6 +215,52 @@ class HoymilesPVSensor(SensorEntity):
     @property
     def last_reset(self):
         if PV_TYPES[self._type][5]:
+            return datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+
+    @property
+    def unit_of_measurement(self):
+        return self._unit_of_measurement
+
+    def update(self):
+        self._updater.update()
+
+class HoymilesMISensor(SensorEntity):
+    def __init__(self, name, serial_number, mi_index, sensor_type, updater):
+        self._client_name = name + ' ' + serial_number
+        self._serial_number = serial_number
+        self._mi_index = mi_index
+        self._type = sensor_type
+        self._updater = updater
+        self._name = MI_TYPES[sensor_type][0]
+        self._state = None
+        self._unit_of_measurement = MI_TYPES[sensor_type][1]
+
+    @property
+    def name(self):
+        return '{} {}'.format(self._client_name, self._type)
+
+    @property
+    def state(self):
+        if self._updater.data is not None and self._mi_index < len(self._updater.data.microinverters):
+            mi = self._updater.data.microinverters[self._mi_index]
+            self._state = getattr(mi, self._type) / MI_TYPES[self._type][5]
+        return self._state
+
+    @property
+    def unique_id(self):
+        return f"dtu-mi-{self._serial_number}-{self._type.lower()}"
+
+    @property
+    def device_class(self):
+        return MI_TYPES[self._type][2]
+
+    @property
+    def state_class(self):
+        return MI_TYPES[self._type][3]
+
+    @property
+    def last_reset(self):
+        if MI_TYPES[self._type][4]:
             return datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
 
     @property

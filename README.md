@@ -60,6 +60,7 @@ rm hoymiles_dtu.zip
 | `dtu_type` | `int` | `False` | 0 | 0 - Hoymiles DTU, 1 - OpenDTU |
 | `monitored_conditions` | `list` | `True` | - | List of conditions to monitor |
 | `monitored_conditions_pv` | `list` | `True` | - | List of conditions for pv to monitor |
+| `monitored_conditions_mi` | `list` | `False` | `[]` | List of conditions for microinverters to monitor |
 | `panels` | `float` | `True` | - | Number of PV panels |
 | `scan_interval` | `time period` | `False` | `00:02:00` | Interval between sensor updates |
 
@@ -71,6 +72,14 @@ rm hoymiles_dtu.zip
 | `today_production` | Production of a photovoltaic power plant today |
 | `total_production` | Total production of a photovoltaic power plant - use for Energy Dashboard |
 | `alarm_flag` | Alarm flag of a photovoltaic power plant |
+
+### Possible microinverter monitored conditions
+
+| Key | Description |
+| --- | --- |
+| `ac_power` | Total AC output power of the microinverter (sum of all ports) |
+| `today_production` | Today production of the microinverter (sum of all ports) |
+| `total_production` | Total production of the microinverter (sum of all ports) |
 
 ### Possible PV monitored conditions
 
@@ -114,6 +123,10 @@ sensor:
       - 'alarm_code'
       - 'alarm_count'
       - 'link_status'
+    monitored_conditions_mi:
+      - 'ac_power'
+      - 'today_production'
+      - 'total_production'
     panels: 16
 ```
 

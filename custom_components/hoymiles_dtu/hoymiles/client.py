@@ -3,7 +3,7 @@
 from typing import TYPE_CHECKING
 
 from ._modbus_tcp_client import create_modbus_tcp_client
-from .datatypes import CommunicationParams, InverterData, PlantData, _serial_number_t
+from .datatypes import CommunicationParams, InverterData, MicroinverterData, PlantData, _serial_number_t
 
 if TYPE_CHECKING:  # pragma: no cover
     from pymodbus.client import ModbusTcpClient
@@ -94,6 +94,22 @@ class HoymilesModbusTCP:
                     self._dtu_serial_number = _serial_number_t.unpack(result.encode()[1::])         
         return self._dtu_serial_number
 
+    @staticmethod
+    def _group_ports_to_microinverters(inverters: list[InverterData]) -> list[MicroinverterData]:
+        """Group port-level data by serial number into microinverter-level data."""
+        from collections import OrderedDict
+        grouped: OrderedDict[str, MicroinverterData] = OrderedDict()
+        for port in inverters:
+            sn = port.serial_number
+            if sn not in grouped:
+                grouped[sn] = MicroinverterData(serial_number=sn)
+            mi = grouped[sn]
+            mi.ac_power += port.pv_power
+            mi.today_production += port.today_production
+            mi.total_production += port.total_production
+            mi.port_count += 1
+        return list(grouped.values())
+
     @property
     def plant_data(self) -> PlantData:
         """Plant status data.
@@ -102,7 +118,8 @@ class HoymilesModbusTCP:
 
         """
         inverters = self.inverters
-        data = PlantData(self.dtu, inverters=inverters)
+        microinverters = self._group_ports_to_microinverters(inverters)
+        data = PlantData(self.dtu, inverters=inverters, microinverters=microinverters)
         for inverter in inverters:
             # calculate plant data from inverters
             # only active inverters are included
