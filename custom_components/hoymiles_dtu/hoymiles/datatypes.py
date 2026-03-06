@@ -162,6 +162,22 @@ class InverterDataOpenDTU(Structure):  # type: ignore[misc]
     """Link status."""
     reserved2: list[int] = member(fmt=_reserved)
 @dataclass
+class MicroinverterData:
+    """Aggregated data for a physical microinverter (summed from port-level data)."""
+
+    serial_number: str
+    """Microinverter serial number."""
+    ac_power: Decimal = Decimal(0)
+    """Total AC output power across all ports [W]."""
+    today_production: int = 0
+    """Today production across all ports [Wh]."""
+    total_production: int = 0
+    """Total production across all ports [Wh]."""
+    port_count: int = 0
+    """Number of ports on this microinverter."""
+
+
+@dataclass
 class PlantData:
     """Data structure for the whole plant."""
 
@@ -176,7 +192,9 @@ class PlantData:
     alarm_flag: bool = False
     """Alarm indicator. True means that at least one inverter reported an alarm."""
     inverters: list[InverterData] = field(default_factory=list)
-    """Data for each inverter."""
+    """Data for each port (module-level)."""
+    microinverters: list[MicroinverterData] = field(default_factory=list)
+    """Aggregated data for each physical microinverter."""
 
 
 @dataclass
